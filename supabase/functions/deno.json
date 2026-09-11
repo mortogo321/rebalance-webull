@@ -1,0 +1,19 @@
+{
+  "imports": {
+    "hono": "npm:hono@4.13.7",
+    "hono/": "npm:/hono@4.13.7/",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.116.0"
+  },
+  "lint": {
+    "rules": {
+      "tags": [
+        "recommended"
+      ]
+    }
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "semiColons": true,
+    "singleQuote": false
+  }
+}

@@ -1,0 +1,22 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+.eslintcache
+.pnpm-store/
+
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# .env.development / .env.uat / .env.production are REQUIRED in the build
+# context: the Dockerfile copies one of them to .env, and Next.js needs
+# NEXT_PUBLIC_* at build time.
+.env
+.env.local
+.env.*.local
+
+*.md

@@ -1,0 +1,52 @@
+# Supabase local development stack.
+# Deliberately minimal: every key here is one we actually depend on, so the
+# file does not drift as the CLI evolves. Everything else takes CLI defaults.
+project_id = "rebalance-webull"
+
+[api]
+enabled = true
+port = 54321
+# `private` is intentionally absent. Schemas not listed here are unreachable
+# through PostgREST, which is how encrypted broker credentials stay out of
+# every client-facing API surface.
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["http://127.0.0.1:3000", "http://localhost:3000"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+# The assignment asks for no sign-up page. Users come from seed.sql / Studio.
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+enable_confirmations = false
+double_confirm_changes = true
+
+[edge_runtime]
+enabled = true
+policy = "oneshot"
+
+[functions.api]
+# The gateway's blanket 401 cannot express "which route" or return a JSON body,
+# and the engine callback route authenticates with a shared secret rather than a
+# user JWT. Verification is therefore done inside the Hono app, per route.
+verify_jwt = false

@@ -1,0 +1,19 @@
+# --- Next.js / Node ---
+node_modules/
+bun.lock.bak
+.next/
+out/
+build/
+dist/
+next-env.d.ts
+*.tsbuildinfo
+
+# --- package managers ---
+.pnpm-store/
+.yarn/
+.npm/
+
+# --- test / lint caches ---
+.eslintcache
+coverage/
+.vitest/

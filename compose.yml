@@ -1,0 +1,304 @@
+# =============================================================================
+# Base composition — development defaults. Overlays add the rest:
+#
+#   docker compose ...                                    development
+#   docker compose -f compose.yml -f compose.uat.yml ...  UAT  (blue/green)
+#   docker compose -f compose.yml -f compose.prod.yml ... production
+#
+# Only development exists today: the two overlay files are the deploy story this
+# POC stops short of, and nothing here reads them.
+#
+# Service -> directory (they do not all match by name, so here it is once):
+#   postgres   -           the database
+#   gotrue     -           auth, upstream image
+#   postgrest  -           RLS-enforced REST over `public`, upstream image
+#   gateway    -           one origin in front of gotrue + postgrest
+#   engine     ./api       Python rebalance engine
+#   api        ./supabase  Deno + Hono backend, same source the CLI deploys
+#   web        ./web       Next.js
+#
+# There is no compose env file of its own. Every variable interpolated below
+# is declared in the stack that owns the thing it names — ENGINE_PORT in
+# api/.env.<env>, WEB_PORT in web/.env.<env>, the Supabase project and network
+# in supabase/functions/.env.<env> — and all three are passed together:
+#
+#   docker compose --env-file api/.env.<env> \
+#                  --env-file web/.env.<env> \
+#                  --env-file supabase/functions/.env.<env>
+#
+# api/.env.<env> and web/.env.<env> are loaded per service by `env_file`, so
+# `docker compose up` needs no flags for them; only ${...} interpolation below
+# would, and every one of those has a default.
+#
+# The Supabase platform is defined HERE, not run by the CLI. `docker compose
+# up` is self-sufficient: Postgres and GoTrue come up, the engine applies
+# supabase/migrations/*.sql and seed.sql from its entrypoint before it serves,
+# and the rest start against that. No external network, no `supabase start`.
+#
+# What is deliberately NOT reproduced: Studio, Realtime, Storage, and the
+# `sb_publishable_`/`sb_secret_` key format (a Kong concept -- self-hosted
+# GoTrue and PostgREST verify a signed JWT instead, so the committed dev keys
+# are HS256 tokens carrying `role`). The CLI remains the way to get the full
+# platform; `supabase/` is untouched and still its source of truth.
+#
+# Every service mounts its source read-write and runs a watching dev server:
+# editing a file on the host is live without a rebuild.
+# =============================================================================
+
+name: ${COMPOSE_PROJECT_NAME:-rebalance-webull}
+
+services:
+  # ---------------------------------------------------------------------------
+  # Postgres 17 — the version supabase/config.toml pins, so schema behaviour
+  # matches what the CLI would have given us.
+  #
+  # initdb only creates what the Supabase platform would have pre-created:
+  # roles, extensions, default grants, auth.uid(). The schema itself is applied
+  # by the `migrate` service, which has to wait for GoTrue -- see migrate.sh.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      # Same port the Supabase CLI publishes, so psql one-liners and GUI
+      # connections written against either stack keep working. The two cannot
+      # run at once; that is intended, they are alternatives.
+      - "${POSTGRES_PORT:-54322}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/auth-shim.sql:/docker-entrypoint-initdb.d/00-shim.sql:ro
+    healthcheck:
+      # -h 127.0.0.1 forces a real TCP check. pg_isready over the unix socket
+      # reports ready during initdb, while the shim is still being applied.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks: [default]
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # GoTrue — auth. Owns the `auth` schema and migrates it on every boot, which
+  # is why `migrate` waits for auth.users to exist rather than for this
+  # container to merely be running.
+  #
+  # Settings mirror supabase/config.toml [auth]: signup disabled (the brief asks
+  # for no sign-up page — users come from seed.sql), autoconfirm on because
+  # there is no mail server here, 1h JWTs.
+  # ---------------------------------------------------------------------------
+  gotrue:
+    image: supabase/gotrue:v2.177.0
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: "9999"
+      API_EXTERNAL_URL: http://127.0.0.1:54321
+      GOTRUE_DB_DRIVER: postgres
+      # GoTrue creates and owns auth.*, so it connects as the superuser.
+      #
+      # search_path=auth is load-bearing, not tidiness. GoTrue's migrations
+      # schema-qualify their tables but NOT their `create type` statements, so
+      # without it the enums (factor_type, aal_level, ...) are created in
+      # `public` while the tables land in `auth` -- and the next migration dies
+      # on `type "auth.factor_type" does not exist`. It would also leak five
+      # GoTrue enums into the one schema PostgREST exposes.
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres?search_path=auth
+      GOTRUE_SITE_URL: http://127.0.0.1:3000
+      GOTRUE_URI_ALLOW_LIST: http://127.0.0.1:3000,http://localhost:3000
+      GOTRUE_DISABLE_SIGNUP: "true"
+      # DEV ONLY, and the literal rather than an interpolation: gotrue and
+      # postgrest are the only two consumers and both are defined in this file,
+      # so there is no stack that owns it and nowhere else it could drift from.
+      # This is the well-known Supabase self-host placeholder, deliberately not
+      # a real secret; uat/production inject a generated one.
+      GOTRUE_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+      GOTRUE_JWT_EXP: "3600"
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      # No SMTP in this stack: a user that is not auto-confirmed could never
+      # confirm, and seed.sql sets email_confirmed_at for the same reason.
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [default]
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:9999/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # PostgREST — the read path the web app's server components use directly.
+  #
+  # Connects as `authenticator`, a login role with no rights of its own; it
+  # SET ROLEs into anon or authenticated per request from the verified JWT.
+  # That switch is what makes RLS apply, so this must NOT connect as postgres.
+  # ---------------------------------------------------------------------------
+  postgrest:
+    image: postgrest/postgrest:v12.2.3
+    environment:
+      PGRST_DB_URI: postgres://authenticator:postgres@postgres:5432/postgres
+      # `private` is absent, exactly as in config.toml [api].schemas: encrypted
+      # broker credentials must have no HTTP surface at all.
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_EXTRA_SEARCH_PATH: public,extensions
+      PGRST_DB_MAX_ROWS: "1000"
+      # Must equal gotrue's: one signs, the other verifies.
+      PGRST_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+      PGRST_JWT_AUD: authenticated
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+    depends_on:
+      # The engine migrates from its entrypoint and only then serves /health,
+      # so a healthy engine means the schema PostgREST is about to cache exists.
+      engine:
+        condition: service_healthy
+    networks: [default]
+    # No healthcheck: the image ships PostgREST and nothing else -- no shell, no
+    # curl, no wget -- so nothing inside the container can probe it. The gateway
+    # probes it from outside instead, which is a better test anyway: it proves
+    # the route works, not just that the process is listening.
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Gateway — one origin for auth and data, because supabase-js assumes one.
+  # ---------------------------------------------------------------------------
+  gateway:
+    image: nginx:1.27-alpine
+    ports:
+      # The port the Supabase CLI publishes its gateway on, so NEXT_PUBLIC_
+      # SUPABASE_URL is the same value under either stack.
+      - "${SUPABASE_GATEWAY_PORT:-54321}:8000"
+    volumes:
+      - ./infra/gateway/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      gotrue:
+        condition: service_healthy
+      postgrest:
+        condition: service_started
+    networks: [default]
+    healthcheck:
+      # Probes through to both upstreams, so `gateway: service_healthy` means
+      # "auth and data are reachable at this origin" -- which is exactly what
+      # web and api are waiting to be true.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/_gateway/health >/dev/null && wget -qO- http://127.0.0.1:8000/auth/v1/health >/dev/null && wget -qO- http://127.0.0.1:8000/rest/v1/ >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Rebalance engine — Python 3.12, uvicorn --reload
+  # ---------------------------------------------------------------------------
+  engine:
+    build:
+      context: ./api
+      target: development
+      args:
+        APP_ENV: development
+    env_file: ./api/.env.development
+    environment:
+      # Compose-level overrides beat the baked-in .env, which is the same
+      # precedence UAT relies on when injecting secrets.
+      APP_ENV: development
+    ports:
+      - "${ENGINE_PORT:-8000}:8000"
+    volumes:
+      # Source only. node_modules/site-packages stay inside the image, so a
+      # host-side venv cannot shadow the container's dependencies.
+      - ./api/src:/app/src:rw
+      - ./api/tests:/app/tests:rw
+      # Schema, applied by api/start.sh. Read-only: it lives in supabase/ and
+      # this stack only consumes it.
+      - ./supabase/migrations:/opt/bootstrap/migrations:ro
+      - ./supabase/seed.sql:/opt/bootstrap/seed.sql:ro
+    depends_on:
+      # GoTrue, not just postgres: api/start.sh applies migrations that carry
+      # foreign keys to auth.users, and GoTrue is what creates that table.
+      gotrue:
+        condition: service_healthy
+    # No `supabase` network: the engine talks to Postgres and nothing else.
+    networks: [default]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      # Covers migrating a fresh database before uvicorn binds, not just pool
+      # warm-up: nothing here answers until start.sh has finished.
+      start_period: 90s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Backend API — Deno + Hono, identical source to supabase/functions/api
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ./supabase
+      target: development
+      args:
+        APP_ENV: development
+    env_file: ./supabase/functions/.env.development
+    environment:
+      # Both keys come from the env_file above. These two name compose services
+      # and so are facts about this composition rather than about the stack.
+      ENGINE_URL: http://engine:8000
+      # Server-side, so the gateway by service name — not the published port.
+      SUPABASE_URL: http://gateway:8000
+    ports:
+      - "${API_PORT:-54331}:8000"
+    volumes:
+      - ./supabase/functions:/app/functions:rw
+    depends_on:
+      engine:
+        condition: service_started
+      gateway:
+        condition: service_healthy
+    networks: [default]
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Web — Next.js 16, turbopack dev server
+  # ---------------------------------------------------------------------------
+  web:
+    build:
+      context: ./web
+      target: development
+      args:
+        APP_ENV: development
+    env_file: ./web/.env.development
+    environment:
+      # Server components render inside the container, where 127.0.0.1 is the
+      # container itself; the browser-facing NEXT_PUBLIC_ URLs in the env_file
+      # must stay host-addressable, so the internal ones are overridden here.
+      SUPABASE_INTERNAL_URL: http://gateway:8000
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      - ./web:/app:rw
+      # Anonymous volumes so the image's node_modules and build cache survive
+      # the bind mount above; without these the host directory hides them and
+      # the container starts with no dependencies.
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      api:
+        condition: service_started
+      gateway:
+        condition: service_healthy
+    networks: [default]
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+
+networks:
+  default:

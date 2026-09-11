@@ -1,0 +1,46 @@
+// JSONC, not JSON: this file carries comments explaining two non-obvious
+// settings, and Biome lints its own config as a source file — strict JSON there
+// makes every `//` a parse error and aborts the whole run.
+{
+  "$schema": "node_modules/@biomejs/biome/configuration_schema.json",
+  "files": {
+    "includes": ["**", "!**/.next", "!**/node_modules", "!**/next-env.d.ts", "!**/*.tsbuildinfo"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  },
+  "css": {
+    // Tailwind v4's `@theme { ... }` at-rule in app/globals.css is otherwise a parse error.
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "style": {
+        // Every hit is `process.env.NEXT_PUBLIC_*!` at a required-config read site;
+        // Next.js inlines these at build time and the app is meant to fail loudly
+        // if one is ever missing, so the assertion is intentional, not an oversight.
+        "noNonNullAssertion": "off"
+      }
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
+}

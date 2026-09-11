@@ -1,0 +1,31 @@
+# --- python build noise ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+*.egg-info/
+dist/
+build/
+
+# --- vcs / editor ---
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# --- env ---
+# .env.development / .env.uat / .env.production are REQUIRED in the build
+# context: the Dockerfile copies one of them to .env. Only the untracked,
+# machine-local files are excluded.
+.env
+.env.local
+.env.*.local
+
+# --- docs ---
+*.md

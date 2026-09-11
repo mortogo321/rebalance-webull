@@ -1,0 +1,11 @@
+# --- Supabase CLI local state (machine-specific, never shared) ---
+.branches/
+.temp/
+.env
+
+# --- Deno ---
+.deno/
+deno.lock.bak
+
+# NOTE: migrations/, functions/, seed.sql and config.toml ARE tracked —
+# they are the schema-as-code that CI replays into every environment.

@@ -1,0 +1,44 @@
+# =============================================================================
+# Global ignores only. Each stack owns its own .gitignore:
+#   web/.gitignore        Next.js / Node
+#   api/.gitignore        Python
+#   supabase/.gitignore   Supabase CLI / Deno
+#   infra/.gitignore      deploy state
+# =============================================================================
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# --- agent tooling ---
+.claude/
+
+# --- env files ------------------------------------------------------------
+# .env.development / .env.uat / .env.production ARE tracked. They carry
+# non-secret defaults only -- hosts, ports, feature flags, broker mode -- so a
+# clean clone builds and runs with no hand-editing. Every secret in them is
+# left blank and supplied at deploy time from a CI/CD variable.
+#
+# Untracked, in precedence order (later wins):
+#   .env.<env>    committed defaults        <- in git
+#   real env vars compose / CI secrets      <- injected
+#   .env.local    personal overrides        <- never in git
+.env
+.env.local
+.env.*.local
+*.pem
+*.p12
+id_rsa*
+secrets/
+
+# --- dependency dirs ---
+# web/ is the only stack with a lockfile, but a stray install at the root (or
+# anywhere else) must never be committable.
+node_modules/
+
+# --- logs / coverage common to every stack ---
+*.log
+coverage/

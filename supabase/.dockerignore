@@ -1,0 +1,7 @@
+.branches/
+.temp/
+.env
+.env.local
+.env.*.local
+.deno/
+*.md

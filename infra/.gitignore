@@ -1,0 +1,9 @@
+# --- runtime deploy state written on the server by deploy.sh ---
+.deploy-state
+*.active
+nginx/conf.d/upstream.active.conf
+
+# --- generated TLS material ---
+certs/
+*.crt
+*.key
