@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 from .brokers.base import Broker, BrokerAuthError, BrokerError
 from .brokers.mock import MockBroker
@@ -30,7 +31,6 @@ from .models import (
     BotSpec,
     Holding,
     RebalancePlan,
-    Side,
     TriggerDecision,
 )
 from .money import money
@@ -69,7 +69,7 @@ class RunOutcome:
         self.submitted = submitted
         self.error = error
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "executed": self.executed,
             "reason": self.reason,
@@ -116,12 +116,12 @@ class RebalanceService:
             timeout=self._settings.webull_request_timeout_seconds,
         )
 
-    async def verify_connection(self, user_id: str) -> dict:
+    async def verify_connection(self, user_id: str) -> dict[str, Any]:
         """Probe the broker and record the result on the user's connection row."""
         try:
             broker = await self.broker_for(user_id)
             account = await broker.get_account()
-        except Exception as exc:  # noqa: BLE001 - every failure is surfaced to the user
+        except Exception as exc:
             # A BrokerError carries a message written to be read by a user
             # ("Webull rejected these credentials..."). Anything else is an
             # internal fault, and its text could name a host or a driver, so it
@@ -166,7 +166,7 @@ class RebalanceService:
         )
 
     # -- portfolio snapshot --------------------------------------------------
-    async def snapshot(self, user_id: str, *, symbols: list[str] | None = None) -> dict:
+    async def snapshot(self, user_id: str, *, symbols: list[str] | None = None) -> dict[str, Any]:
         """Cash, positions and quotes -- what the connection screen displays."""
         broker = await self.broker_for(user_id)
         account = await broker.get_account()
@@ -341,11 +341,19 @@ class RebalanceService:
 
         log.info(
             "run %s bot=%s submitted=%d/%d status=%s",
-            run_id, bot.id, submitted, len(plan.orders), status,
+            run_id,
+            bot.id,
+            submitted,
+            len(plan.orders),
+            status,
         )
         return RunOutcome(
-            executed=True, reason=reason, run_id=run_id, plan=plan,
-            submitted=submitted, error=error,
+            executed=True,
+            reason=reason,
+            run_id=run_id,
+            plan=plan,
+            submitted=submitted,
+            error=error,
         )
 
     async def _skip(

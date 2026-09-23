@@ -12,9 +12,7 @@ from datetime import UTC, datetime, timedelta
 from .models import BotStatus, TriggerDecision, TriggerType
 
 
-def next_run_after(
-    now: datetime, interval_minutes: int | None
-) -> datetime | None:
+def next_run_after(now: datetime, interval_minutes: int | None) -> datetime | None:
     """The next scheduled evaluation time, or None for drift-only bots."""
     if not interval_minutes:
         return None
@@ -48,9 +46,12 @@ def evaluate_trigger(
         # bot would appear to do nothing for a full interval.
         schedule_due = next_run_at is None or now >= _as_utc(next_run_at)
 
-    if trigger_type in (TriggerType.DRIFT, TriggerType.SCHEDULE_OR_DRIFT):
-        if drift_threshold_bps is not None and max_drift_bps is not None:
-            drift_breached = max_drift_bps >= drift_threshold_bps
+    if (
+        trigger_type in (TriggerType.DRIFT, TriggerType.SCHEDULE_OR_DRIFT)
+        and drift_threshold_bps is not None
+        and max_drift_bps is not None
+    ):
+        drift_breached = max_drift_bps >= drift_threshold_bps
 
     if trigger_type is TriggerType.SCHEDULE:
         if schedule_due:

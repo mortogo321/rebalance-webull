@@ -72,9 +72,7 @@ class Settings(BaseSettings):
 
     @property
     def allowed_broker_hosts(self) -> tuple[str, ...]:
-        return tuple(
-            h.strip().lower() for h in self.webull_allowed_hosts.split(",") if h.strip()
-        )
+        return tuple(h.strip().lower() for h in self.webull_allowed_hosts.split(",") if h.strip())
 
     @property
     def is_production(self) -> bool:
@@ -134,8 +132,7 @@ class Settings(BaseSettings):
         # A development stack must never be pointed at a real broker by accident.
         if self.app_env == "development" and self.broker_mode != "mock":
             raise ConfigError(
-                "development runs against the mock broker only; "
-                "set APP_ENV=uat to use a real venue"
+                "development runs against the mock broker only; set APP_ENV=uat to use a real venue"
             )
 
         return self

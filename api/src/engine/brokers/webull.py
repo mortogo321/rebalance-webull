@@ -116,8 +116,7 @@ class WebullUatBroker:
             # Belt and braces with the startup check: this also catches a base
             # url mutated at runtime rather than read from configuration.
             raise BrokerError(
-                f"refusing to call {host!r}: not in the allowed broker hosts "
-                f"{self._allowed_hosts}"
+                f"refusing to call {host!r}: not in the allowed broker hosts {self._allowed_hosts}"
             )
 
     async def aclose(self) -> None:
@@ -137,9 +136,7 @@ class WebullUatBroker:
             "x-signature-nonce": secrets.token_hex(16),
             "host": host,
         }
-        raw = build_string_to_sign(
-            path=path, params=params, headers=signing_headers, body=body
-        )
+        raw = build_string_to_sign(path=path, params=params, headers=signing_headers, body=body)
         return {
             **signing_headers,
             "x-signature": sign(raw, self._app_secret),
@@ -184,9 +181,7 @@ class WebullUatBroker:
             )
         if response.status_code >= 400:
             # Never echo the response body: it can contain account identifiers.
-            raise BrokerError(
-                f"broker returned {response.status_code} for {path}"
-            )
+            raise BrokerError(f"broker returned {response.status_code} for {path}")
         return response.json()
 
     # -- protocol -----------------------------------------------------------
@@ -219,9 +214,7 @@ class WebullUatBroker:
             "GET", "/market/quotes", params={"symbols": ",".join(sorted(symbols))}
         )
         rows = payload.get("data", payload) or []
-        quotes = {
-            str(r["symbol"]).upper(): money(Decimal(str(r["lastPrice"]))) for r in rows
-        }
+        quotes = {str(r["symbol"]).upper(): money(Decimal(str(r["lastPrice"]))) for r in rows}
         missing = sorted(set(s.upper() for s in symbols) - quotes.keys())
         if missing:
             raise BrokerError(f"no quote returned for: {', '.join(missing)}")
@@ -232,7 +225,7 @@ class WebullUatBroker:
         *,
         symbol: str,
         side: Side,
-        quantity: Decimal,  # noqa: A002 - matches the Broker protocol
+        quantity: Decimal,
         client_order_id: str,
         limit_price: Decimal | None = None,
     ) -> BrokerOrder:

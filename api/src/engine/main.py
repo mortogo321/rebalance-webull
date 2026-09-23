@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -34,7 +35,7 @@ log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     logging.basicConfig(
         level=settings.log_level,
@@ -81,15 +82,15 @@ app = FastAPI(
 # dependencies
 # -----------------------------------------------------------------------------
 def get_service(request: Request) -> RebalanceService:
-    return request.app.state.service
+    return cast(RebalanceService, request.app.state.service)
 
 
 def get_db(request: Request) -> Database:
-    return request.app.state.db
+    return cast(Database, request.app.state.db)
 
 
 def get_config(request: Request) -> Settings:
-    return request.app.state.settings
+    return cast(Settings, request.app.state.settings)
 
 
 async def require_internal_token(
@@ -193,11 +194,15 @@ async def store_credentials(
         db,
         user_id=payload.user_id,
         api_key_encrypted=encrypt(
-            payload.api_key, key=key, aad=payload.user_id,
+            payload.api_key,
+            key=key,
+            aad=payload.user_id,
             key_version=settings.app_encryption_key_version,
         ),
         api_secret_encrypted=encrypt(
-            payload.api_secret, key=key, aad=payload.user_id,
+            payload.api_secret,
+            key=key,
+            aad=payload.user_id,
             key_version=settings.app_encryption_key_version,
         ),
         key_version=settings.app_encryption_key_version,

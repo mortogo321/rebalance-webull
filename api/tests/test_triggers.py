@@ -41,16 +41,12 @@ class TestSchedule:
         assert decision.should_run
 
     def test_it_waits_until_the_interval_elapses(self):
-        decision = check(
-            trigger_type=TriggerType.SCHEDULE, next_run_at=NOW + timedelta(minutes=30)
-        )
+        decision = check(trigger_type=TriggerType.SCHEDULE, next_run_at=NOW + timedelta(minutes=30))
         assert not decision.should_run
         assert "next scheduled run" in decision.reason
 
     def test_it_fires_once_the_interval_has_elapsed(self):
-        decision = check(
-            trigger_type=TriggerType.SCHEDULE, next_run_at=NOW - timedelta(seconds=1)
-        )
+        decision = check(trigger_type=TriggerType.SCHEDULE, next_run_at=NOW - timedelta(seconds=1))
         assert decision.should_run
 
     def test_it_fires_exactly_on_the_boundary(self):
@@ -67,9 +63,7 @@ class TestSchedule:
 
 class TestDrift:
     def test_it_fires_when_drift_reaches_the_threshold(self):
-        decision = check(
-            trigger_type=TriggerType.DRIFT, max_drift_bps=500, drift_threshold_bps=500
-        )
+        decision = check(trigger_type=TriggerType.DRIFT, max_drift_bps=500, drift_threshold_bps=500)
         assert decision.should_run
         assert "500 bps >= threshold 500 bps" in decision.reason
 

@@ -59,13 +59,15 @@ async def get_bot(
     db: Database, *, bot_id: str, user_id: str, max_orders: int = 25
 ) -> BotSpec | None:
     row = await db.fetch_one(
-        f"select {_BOT_COLUMNS} from public.bots b where b.id = %s and b.user_id = %s",
+        f"select {_BOT_COLUMNS} from public.bots b "  # noqa: S608 - only _BOT_COLUMNS (a constant) is interpolated; values are %s params
+        "where b.id = %s and b.user_id = %s",
         (bot_id, user_id),
     )
     if row is None:
         return None
     targets = await db.fetch_all(
-        "select symbol, target_weight_bps from public.bot_targets where bot_id = %s order by symbol",
+        "select symbol, target_weight_bps from public.bot_targets "
+        "where bot_id = %s order by symbol",
         (bot_id,),
     )
     return _to_spec(row, targets, max_orders)
@@ -79,7 +81,8 @@ async def list_running_bots(db: Database, *, max_orders: int = 25) -> list[BotSp
     many bots exist.
     """
     rows = await db.fetch_all(
-        f"select {_BOT_COLUMNS} from public.bots b where b.status = 'running' order by b.next_run_at nulls first"
+        f"select {_BOT_COLUMNS} from public.bots b "  # noqa: S608 - only _BOT_COLUMNS (a constant) is interpolated; no user input
+        "where b.status = 'running' order by b.next_run_at nulls first"
     )
     if not rows:
         return []
@@ -137,9 +140,7 @@ async def upsert_credentials(
 
 
 async def delete_credentials(db: Database, *, user_id: str) -> None:
-    await db.execute(
-        "delete from private.broker_credentials where user_id = %s", (user_id,)
-    )
+    await db.execute("delete from private.broker_credentials where user_id = %s", (user_id,))
 
 
 async def set_connection_state(
@@ -163,17 +164,30 @@ async def set_connection_state(
                 case when %s then now() else null end)
         on conflict (user_id) do update
             set status           = excluded.status,
-                environment      = coalesce(excluded.environment, public.broker_connections.environment),
-                account_id       = coalesce(excluded.account_id, public.broker_connections.account_id),
-                account_currency = coalesce(excluded.account_currency, public.broker_connections.account_currency),
-                api_key_hint     = coalesce(excluded.api_key_hint, public.broker_connections.api_key_hint),
+                environment      = coalesce(
+                    excluded.environment, public.broker_connections.environment),
+                account_id       = coalesce(
+                    excluded.account_id, public.broker_connections.account_id),
+                account_currency = coalesce(
+                    excluded.account_currency,
+                    public.broker_connections.account_currency),
+                api_key_hint     = coalesce(
+                    excluded.api_key_hint, public.broker_connections.api_key_hint),
                 last_error       = excluded.last_error,
-                last_verified_at = coalesce(excluded.last_verified_at, public.broker_connections.last_verified_at),
+                last_verified_at = coalesce(
+                    excluded.last_verified_at,
+                    public.broker_connections.last_verified_at),
                 updated_at       = now()
         """,
         (
-            user_id, status, environment, account_id, account_currency,
-            api_key_hint, last_error, verified,
+            user_id,
+            status,
+            environment,
+            account_id,
+            account_currency,
+            api_key_hint,
+            last_error,
+            verified,
         ),
     )
 
@@ -203,9 +217,15 @@ async def create_run(
         returning id
         """,
         (
-            bot_id, user_id, status, trigger_reason,
+            bot_id,
+            user_id,
+            status,
+            trigger_reason,
             json.dumps(plan) if plan is not None else None,
-            portfolio_value, cash_before, max_drift_bps, planned_order_count,
+            portfolio_value,
+            cash_before,
+            max_drift_bps,
+            planned_order_count,
         ),
     )
     assert row is not None
@@ -249,8 +269,14 @@ async def record_order(
         returning id
         """,
         (
-            run_id, bot_id, user_id, order.symbol, str(order.side),
-            order.quantity, order.estimated_value, client_order_id,
+            run_id,
+            bot_id,
+            user_id,
+            order.symbol,
+            str(order.side),
+            order.quantity,
+            order.estimated_value,
+            client_order_id,
         ),
     )
     if row is not None:

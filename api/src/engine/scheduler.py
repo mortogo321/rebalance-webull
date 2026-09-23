@@ -116,9 +116,7 @@ class Scheduler:
                 await conn.execute("select pg_advisory_unlock(%s)", (LEADER_LOCK_ID,))
 
     async def _evaluate_all(self) -> None:
-        bots = await list_running_bots(
-            self._db, max_orders=self._settings.max_orders_per_run
-        )
+        bots = await list_running_bots(self._db, max_orders=self._settings.max_orders_per_run)
         self.last_tick_at = datetime.now(UTC)
         self.last_tick_bots = len(bots)
         if not bots:

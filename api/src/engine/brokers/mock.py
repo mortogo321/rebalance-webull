@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 from ..db import Database
 from ..models import Account, BrokerOrder, Position, Side
@@ -46,7 +47,7 @@ class MockBroker:
         self._now = now or datetime.now(UTC)
 
     # -- account ------------------------------------------------------------
-    async def _ensure_account(self) -> dict:
+    async def _ensure_account(self) -> dict[str, Any]:
         row = await self._db.fetch_one(
             "select user_id, cash, currency from private.paper_accounts where user_id = %s",
             (self._user_id,),
@@ -107,7 +108,7 @@ class MockBroker:
         *,
         symbol: str,
         side: Side,
-        quantity: Decimal,  # noqa: A002 - matches the Broker protocol
+        quantity: Decimal,
         client_order_id: str,
         limit_price: Decimal | None = None,
     ) -> BrokerOrder:
@@ -150,9 +151,7 @@ class MockBroker:
                         side=side,
                         quantity=qty,
                         status="rejected",
-                        reject_reason=(
-                            f"insufficient buying power: need {notional}, have {cash}"
-                        ),
+                        reject_reason=(f"insufficient buying power: need {notional}, have {cash}"),
                     )
                 new_qty = held + qty
                 # Weighted average cost, the convention every broker statement uses.
@@ -173,7 +172,8 @@ class MockBroker:
                 new_cash = money(cash + notional)
 
             await conn.execute(
-                "update private.paper_accounts set cash = %s, updated_at = now() where user_id = %s",
+                "update private.paper_accounts set cash = %s, updated_at = now() "
+                "where user_id = %s",
                 (new_cash, self._user_id),
             )
             await conn.execute(
@@ -188,9 +188,7 @@ class MockBroker:
                 (self._user_id, symbol, new_qty, new_cost),
             )
 
-        log.info(
-            "paper fill user=%s %s %s %s @ %s", self._user_id, side, qty, symbol, price
-        )
+        log.info("paper fill user=%s %s %s %s @ %s", self._user_id, side, qty, symbol, price)
         return BrokerOrder(
             broker_order_id=client_order_id,
             symbol=symbol,

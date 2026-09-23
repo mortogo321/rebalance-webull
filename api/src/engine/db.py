@@ -48,21 +48,25 @@ class Database:
             return False
 
     @asynccontextmanager
-    async def connection(self) -> AsyncIterator[AsyncConnection]:
+    async def connection(self) -> AsyncIterator[AsyncConnection[Any]]:
+        # Any, not DictRow: the pool hands out dict rows at runtime
+        # (row_factory=dict_row above), but AsyncConnectionPool is generic
+        # over the connection class, which stays the default. Spelling the
+        # row type here would lie in the other direction and poison every
+        # row["column"] access instead.
         async with self._pool.connection() as conn:
             yield conn
 
     @asynccontextmanager
-    async def transaction(self) -> AsyncIterator[AsyncConnection]:
+    async def transaction(self) -> AsyncIterator[AsyncConnection[Any]]:
         """A connection wrapped in an explicit transaction.
 
         Used where a run must be all-or-nothing: writing the run row, its
         orders and the resulting paper positions cannot partially apply, or the
         audit trail stops matching the portfolio.
         """
-        async with self._pool.connection() as conn:
-            async with conn.transaction():
-                yield conn
+        async with self._pool.connection() as conn, conn.transaction():
+            yield conn
 
     async def fetch_all(self, sql: str, params: Any = None) -> list[dict[str, Any]]:
         async with self.connection() as conn:

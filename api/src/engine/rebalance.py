@@ -45,7 +45,7 @@ from .models import (
     SkippedOrder,
     Target,
 )
-from .money import BPS, ZERO, apply_bps, bps_of, money, quantity, whole_shares
+from .money import ZERO, apply_bps, bps_of, money, quantity, whole_shares
 
 TOTAL_WEIGHT_BPS = 10_000
 
@@ -69,15 +69,11 @@ def validate_targets(targets: Iterable[Target]) -> tuple[Target, ...]:
             raise RebalanceError(f"duplicate target symbol: {t.symbol}")
         seen.add(t.symbol)
         if t.weight_bps < 0 or t.weight_bps > TOTAL_WEIGHT_BPS:
-            raise RebalanceError(
-                f"{t.symbol}: weight {t.weight_bps} bps is outside 0-10000"
-            )
+            raise RebalanceError(f"{t.symbol}: weight {t.weight_bps} bps is outside 0-10000")
 
     total = sum(t.weight_bps for t in items)
     if total != TOTAL_WEIGHT_BPS:
-        raise RebalanceError(
-            f"target weights must total 10000 bps (100%), got {total} bps"
-        )
+        raise RebalanceError(f"target weights must total 10000 bps (100%), got {total} bps")
     return items
 
 
@@ -128,9 +124,7 @@ def build_plan(
     price_of = {s: _price_for(s, prices) for s in universe}
 
     # --- 1-3: what are we actually working with? -----------------------------
-    positions_value = sum(
-        (held[s] * price_of[s] for s in held), start=ZERO
-    )
+    positions_value = sum((held[s] * price_of[s] for s in held), start=ZERO)
     portfolio_value = money(cash + positions_value)
     investable = money(min(Decimal(settings.investment_amount), portfolio_value))
     deployable = money(investable - apply_bps(investable, settings.cash_buffer_bps))
@@ -264,10 +258,7 @@ def build_plan(
                     symbol=drift.symbol,
                     side=Side.BUY,
                     intended_value=wanted,
-                    reason=(
-                        f"{affordable} buys 0 whole shares of {drift.symbol} "
-                        f"at {drift.price}"
-                    ),
+                    reason=(f"{affordable} buys 0 whole shares of {drift.symbol} at {drift.price}"),
                 )
             )
             continue

@@ -1,5 +1,7 @@
 # Rebalance Webull
 
+![CI](https://github.com/mortogo321/rebalance-webull/actions/workflows/ci.yml/badge.svg)
+
 Sign in, connect a Webull account with an API key, and set a bot that holds a
 target portfolio mix by trading the difference automatically.
 
@@ -520,6 +522,12 @@ them.
 ---
 
 ## Tests
+
+CI (`.github/workflows/ci.yml`) runs the static checks and both unit suites on
+every push and pull request: `ruff check`, `ruff format --check`, `mypy` and
+`pytest` for the engine; `biome`, `tsc`, `vitest` and `next build` for the web
+app; `deno lint`, `deno fmt --check` and `deno check` for the edge function;
+plus `docker compose config` validation. Dependabot checks weekly.
 
 ```sh
 # Python engine — inside the image, so no host Python is needed

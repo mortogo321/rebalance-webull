@@ -35,9 +35,7 @@ _MIN_PRICE = Decimal("1.00")
 
 
 def _digest(*parts: str) -> int:
-    return int.from_bytes(
-        hashlib.sha256("|".join(parts).encode("utf-8")).digest()[:8], "big"
-    )
+    return int.from_bytes(hashlib.sha256("|".join(parts).encode("utf-8")).digest()[:8], "big")
 
 
 def base_price(symbol: str) -> Decimal:
@@ -73,9 +71,9 @@ def price_for(
 
     # A slow drift across the month keeps a multi-day demo from oscillating
     # around a fixed point without ever going anywhere.
-    trend_bps = Decimal((_digest("trend", str(seed), symbol) % 61) - 30) * Decimal(
-        on.day
-    ) / Decimal(10)
+    trend_bps = (
+        Decimal((_digest("trend", str(seed), symbol) % 61) - 30) * Decimal(on.day) / Decimal(10)
+    )
 
     move_bps = direction * magnitude + trend_bps
     price = anchor * (Decimal(10_000) + move_bps) / Decimal(10_000)

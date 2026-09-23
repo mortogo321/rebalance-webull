@@ -209,7 +209,10 @@ class TestLiquidation:
         # 40.5 shares must all go, even though the bot trades whole shares.
         result = plan(
             cash=d(0),
-            holdings=(holding("AAPL", 200), Holding("TSLA", d("40.5")),),
+            holdings=(
+                holding("AAPL", 200),
+                Holding("TSLA", d("40.5")),
+            ),
             targets=basket,
             prices=prices,
             settings=settings,
@@ -264,9 +267,7 @@ class TestMinimumOrderValue:
             holdings=(holding("AAPL", 50), holding("NVDA", 78)),
             targets=(Target("AAPL", 5000), Target("NVDA", 5000)),
             prices=prices,
-            settings=RebalanceSettings(
-                investment_amount=d(20_000), min_order_value=d(500)
-            ),
+            settings=RebalanceSettings(investment_amount=d(20_000), min_order_value=d(500)),
         )
         assert result.orders == ()
         assert any("below the 500" in s.reason for s in result.skipped)
@@ -277,9 +278,7 @@ class TestMinimumOrderValue:
             holdings=(holding("AAPL", 50), holding("NVDA", 78)),
             targets=(Target("AAPL", 5000), Target("NVDA", 5000)),
             prices=prices,
-            settings=RebalanceSettings(
-                investment_amount=d(20_000), min_order_value=d(200)
-            ),
+            settings=RebalanceSettings(investment_amount=d(20_000), min_order_value=d(200)),
         )
         nvda = next(o for o in result.orders if o.symbol == "NVDA")
         assert nvda.quantity == d(2)

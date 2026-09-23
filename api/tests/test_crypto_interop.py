@@ -26,9 +26,7 @@ USER_ID = "a0000000-0000-4000-8000-000000000001"
 SECRET = "wb_uat_key_11223344"
 KEY_B64 = base64.b64encode(bytes(range(32))).decode()
 
-CRYPTO_TS = (
-    Path(__file__).resolve().parents[2] / "supabase" / "functions" / "_shared" / "crypto.ts"
-)
+CRYPTO_TS = Path(__file__).resolve().parents[2] / "supabase" / "functions" / "_shared" / "crypto.ts"
 
 pytestmark = pytest.mark.skipif(
     shutil.which("deno") is None or not CRYPTO_TS.exists(),

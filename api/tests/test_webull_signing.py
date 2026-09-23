@@ -15,11 +15,11 @@ import pytest
 
 from engine.brokers.base import BrokerError
 from engine.brokers.webull import (
+    WebullUatBroker,
     _percent_encode,
     build_string_to_sign,
     sign,
 )
-from engine.brokers.webull import WebullUatBroker
 
 ALLOWED = ("uat-api.webull.co.th",)
 
@@ -47,12 +47,8 @@ class TestCanonicalString:
         assert "a" in names and "symbols" in names and "x-app-key" in names
 
     def test_parameter_order_in_the_input_does_not_change_the_output(self):
-        a = build_string_to_sign(
-            path="/p", params={"b": "2", "a": "1"}, headers=HEADERS, body=None
-        )
-        b = build_string_to_sign(
-            path="/p", params={"a": "1", "b": "2"}, headers=HEADERS, body=None
-        )
+        a = build_string_to_sign(path="/p", params={"b": "2", "a": "1"}, headers=HEADERS, body=None)
+        b = build_string_to_sign(path="/p", params={"a": "1", "b": "2"}, headers=HEADERS, body=None)
         assert a == b
 
     def test_a_body_appends_its_uppercase_hex_sha256(self):

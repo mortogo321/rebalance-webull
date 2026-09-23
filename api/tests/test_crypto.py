@@ -124,7 +124,6 @@ class TestEnvelopeFormat:
                 decrypt(bad, key=key, aad=USER_A)
 
 
-
 class TestHints:
     def test_the_hint_is_only_the_last_four_characters(self):
         assert hint_of(SECRET) == SECRET[-4:]

@@ -7,7 +7,7 @@ is a position that slowly stops matching the broker's books.
 
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
+from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 
 #: Money is stored as numeric(20,4) in Postgres; mirror that here.
 MONEY = Decimal("0.0001")
