@@ -6,8 +6,8 @@
 -- anything. Log in as the second user and every screen must be empty.
 --
 -- These are local development credentials for a throwaway stack. They are not
--- secrets, and this file is never loaded into uat/production (see the CI
--- guard in .github/workflows/cd.yml).
+-- secrets, and this file is only ever loaded by the local development stack,
+-- never into uat/production.
 -- =============================================================================
 
 create extension if not exists pgcrypto with schema extensions;
